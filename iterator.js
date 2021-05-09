@@ -42,6 +42,29 @@ Iterator.prototype._next = function (callback) {
   return this
 }
 
+Iterator.prototype.nextPage = function (callback) {
+  var that = this
+  if (this.cache && this.cache.length) {
+    const cacheContetnt = [... this.cache]
+    this.cache = null
+    process.nextTick(callback, null, cacheContetnt)
+  } else if (this.finished) {
+    process.nextTick(callback)
+  } else {
+    binding.iterator_next(this.context, function (err, array, finished) {
+      if (err) return callback(err)
+      that.finished = finished
+      const res = []
+      while (array.length > 0) {
+        res.push([array.pop(), array.pop()])
+      }
+      process.nextTick(callback, null, res)
+    })
+  }
+
+  return this
+}
+
 Iterator.prototype._end = function (callback) {
   delete this.cache
   binding.iterator_end(this.context, callback)
