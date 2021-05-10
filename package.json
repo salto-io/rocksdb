@@ -1,5 +1,5 @@
 {
-  "name": "rocksdb",
+  "name": "@salto-io/rocksdb",
   "version": "4.1.0",
   "description": "A low-level Node.js RocksDB binding",
   "license": "MIT",
