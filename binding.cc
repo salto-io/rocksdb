@@ -13,6 +13,7 @@
 #include <rocksdb/env.h>
 #include <rocksdb/options.h>
 #include <rocksdb/table.h>
+#include <rocksdb/utilities/backupable_db.h>
 
 namespace leveldb = rocksdb;
 
@@ -287,6 +288,14 @@ struct BaseWorker {
     self->DoExecute();
   }
 
+
+  void ThrowOnErrorStatus (leveldb::Status status) {
+    SetStatus(status);
+    if (!status.ok()) {
+      napi_throw_error(env_, NULL, status.ToString().c_str());
+    }
+  }
+
   void SetStatus (leveldb::Status status) {
     status_ = status;
     if (!status.ok()) {
@@ -450,6 +459,10 @@ struct Database {
 
   bool HasPriorityWork () {
     return priorityWork_ > 0;
+  }
+
+  leveldb::Status Backup (leveldb::BackupEngine* backup_engine) {
+    return backup_engine->CreateNewBackup(db_);
   }
 
   napi_env env_;
@@ -1289,6 +1302,68 @@ NAPI_METHOD(repair_db) {
   worker->Queue();
 
   delete [] location;
+
+  NAPI_RETURN_UNDEFINED();
+}
+
+/**
+ * Worker class for replicate a database.
+ */
+struct ReplicateWorker final : public BaseWorker {
+  ReplicateWorker (napi_env env, 
+                const std::string& src,
+                const std::string& dst,
+                const std::string& backup,
+                napi_value callback)
+    : BaseWorker(env, NULL, callback, "leveldown.replicate_db"),
+      src_(src),
+      dst_(dst),
+      backup_(backup),
+      backup_engine_(nullptr) {}
+
+  ~ReplicateWorker () {
+    // TODO - implement
+  }
+
+  void DoExecute () override {
+    leveldb::Options options;
+
+    // TODO: support overriding infoLogLevel the same as db.open(options)
+    options.info_log_level = rocksdb::InfoLogLevel::HEADER_LEVEL;
+    options.info_log.reset(new NullLogger());
+    ThrowOnErrorStatus(database_->Open(options, true, src_.c_str()));
+
+    ThrowOnErrorStatus(
+      rocksdb::BackupEngine::Open(
+        rocksdb::Env::Default(), rocksdb::BackupableDBOptions(backup_), &backup_engine_
+      )
+    );
+    ThrowOnErrorStatus(database_->Backup(backup_engine_));
+    // TODO - verify the backup
+
+    ThrowOnErrorStatus(rocksdb::BackupEngine::Open(
+      rocksdb::Env::Default(), rocksdb::BackupableDBOptions(backup_), &backup_engine_)
+    );
+    ThrowOnErrorStatus(backup_engine_->RestoreDBFromLatestBackup(dst_, dst_));
+  }
+  std::string src_;
+  std::string dst_;
+  std::string backup_;
+  rocksdb::BackupEngine* backup_engine_;
+};
+
+/**
+ * Replicates a database.
+ */
+NAPI_METHOD(replicate_db) {
+  NAPI_ARGV(4);
+  NAPI_ARGV_UTF8_NEW(src, 0);
+  NAPI_ARGV_UTF8_NEW(dst, 1);
+  NAPI_ARGV_UTF8_NEW(backup, 2);
+  napi_value callback = argv[3];
+
+  ReplicateWorker* worker = new ReplicateWorker(env, src, dst, backup, callback);
+  worker->DoExecute();
 
   NAPI_RETURN_UNDEFINED();
 }

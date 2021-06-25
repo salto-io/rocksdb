@@ -138,4 +138,24 @@ LevelDOWN.repair = function (location, callback) {
   binding.repair_db(location, callback)
 }
 
+LevelDOWN.replicate = function (src, dst, backup, callback) {
+  if (arguments.length < 4) {
+    throw new Error('replicate() requires `src`, `dst`, `backup` and `callback` arguments')
+  }
+  if (typeof src !== 'string') {
+    throw new Error('replicate() requires a src string argument')
+  }
+  if (typeof dst !== 'string') {
+    throw new Error('replicate() requires a dst string argument')
+  }
+  if (typeof backup !== 'string') {
+    throw new Error('replicate() requires a backup string argument')
+  }
+  if (typeof callback !== 'function') {
+    throw new Error('replicate() requires a callback function argument')
+  }
+
+  binding.replicate_db(src, dst, backup, callback)
+}
+
 module.exports = LevelDOWN.default = LevelDOWN
