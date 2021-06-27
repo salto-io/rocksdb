@@ -45,7 +45,7 @@ Iterator.prototype._next = function (callback) {
 Iterator.prototype.nextPage = function (callback) {
   var that = this
   if (this.cache && this.cache.length) {
-    const cacheContetnt = [... this.cache]
+    const cacheContetnt = [...this.cache]
     this.cache = null
     process.nextTick(callback, null, cacheContetnt)
   } else if (this.finished) {
