@@ -288,14 +288,6 @@ struct BaseWorker {
     self->DoExecute();
   }
 
-
-  void ThrowOnErrorStatus (leveldb::Status status) {
-    SetStatus(status);
-    if (!status.ok()) {
-      napi_throw_error(env_, NULL, status.ToString().c_str());
-    }
-  }
-
   void SetStatus (leveldb::Status status) {
     status_ = status;
     if (!status.ok()) {
@@ -1331,19 +1323,22 @@ struct ReplicateWorker final : public BaseWorker {
 
   void DoExecute () override {
     rocksdb::Options options;
+    rocksdb::Status status;
 
     // TODO: support overriding infoLogLevel the same as db.open(options)
     options.info_log_level = rocksdb::InfoLogLevel::HEADER_LEVEL;
     options.info_log.reset(new NullLogger());
-    ThrowOnErrorStatus(rocksdb::DB::Open(options, src_.c_str(), &db_));
+    status = rocksdb::DB::Open(options, src_.c_str(), &db_);
+    if (!status.ok()) { return SetStatus(status); }
 
-    ThrowOnErrorStatus(
-      rocksdb::BackupEngine::Open(
-        rocksdb::Env::Default(), rocksdb::BackupableDBOptions(backup_), &backup_engine_
-      )
+    status = rocksdb::BackupEngine::Open(
+      rocksdb::Env::Default(), rocksdb::BackupableDBOptions(backup_), &backup_engine_
     );
-    ThrowOnErrorStatus(backup_engine_->CreateNewBackup(db_));
-    ThrowOnErrorStatus(backup_engine_->RestoreDBFromLatestBackup(dst_, dst_));
+    if (!status.ok()) { return SetStatus(status); }
+    status = backup_engine_->CreateNewBackup(db_);
+    if (!status.ok()) { return SetStatus(status); }
+    status = backup_engine_->RestoreDBFromLatestBackup(dst_, dst_);
+    if (!status.ok()) { return SetStatus(status); }
     SetStatus(backup_engine_->PurgeOldBackups(0));
   }
   std::string src_;
