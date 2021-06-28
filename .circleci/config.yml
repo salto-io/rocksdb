@@ -1,0 +1,73 @@
+version: 2.1
+
+orbs:
+  node: circleci/node@4.5.1
+  windows: circleci/windows@2.4.0
+
+
+jobs:
+  prebuild_windows:
+    executor:
+      name: windows/default
+      shell: bash.exe
+    steps:
+      - checkout
+      - node/install:
+          install-yarn: true
+          install-npm: false
+          node-version: 12.22.1
+      - node/install-packages:
+          pkg-manager: yarn 
+          override-ci-command: yarn install --frozen-lockfile
+          with-cache: false
+          include-branch-in-cache-key: false
+      - run:
+          name: Prebuild windows binary
+          command: yarn prebuild
+
+  prebuild_macos:
+    macos:
+      xcode: 11.3.0
+    steps:
+      - checkout
+      - node/install:
+          install-yarn: true
+          install-npm: false
+          node-version: 12.22.1
+      - node/install-packages:
+          pkg-manager: yarn 
+          override-ci-command: yarn install --frozen-lockfile
+          with-cache: false
+          include-branch-in-cache-key: false
+      - run:
+          name: Prebuild binary
+          command: yarn prebuild --tag-libc
+
+  prebuild_linux:  
+    docker:
+      - image: cimg/node:12.22.1
+    steps:
+      - checkout
+      - node/install-packages:
+          pkg-manager: yarn 
+          override-ci-command: yarn install --frozen-lockfile
+          with-cache: false
+          include-branch-in-cache-key: false
+      - run:
+          name: Prebuild binary
+          command: yarn prebuild --tag-libc
+workflows:
+  prebuild:
+    jobs:
+      - prebuild_linux:
+          filters:
+            branches:
+              only: master
+      - prebuild_macos:
+          filters:
+            branches:
+              only: master
+      - prebuild_windows:
+          filters:
+            branches:
+              only: master
