@@ -13,6 +13,7 @@
 #include <rocksdb/env.h>
 #include <rocksdb/options.h>
 #include <rocksdb/table.h>
+#include <rocksdb/utilities/backupable_db.h>
 
 namespace leveldb = rocksdb;
 
@@ -1294,6 +1295,80 @@ NAPI_METHOD(repair_db) {
 }
 
 /**
+ * Worker class for replicate a database.
+ */
+struct ReplicateWorker final : public BaseWorker {
+  ReplicateWorker (napi_env env, 
+                const std::string& src,
+                const std::string& dst,
+                const std::string& backup,
+                napi_value callback)
+    : BaseWorker(env, NULL, callback, "leveldown.replicate_db"),
+      src_(src),
+      dst_(dst),
+      backup_(backup),
+      backup_engine_(nullptr),
+      db_(nullptr) {}
+
+  ~ReplicateWorker () {
+    if (backup_engine_ != nullptr) {
+      delete backup_engine_;
+      backup_engine_ = nullptr;
+    }
+    if (db_ != nullptr) {
+      delete db_;
+      db_ = nullptr;
+    }
+  }
+
+  void DoExecute () override {
+    rocksdb::Options options;
+    rocksdb::Status status;
+
+    // TODO: support overriding infoLogLevel the same as db.open(options)
+    options.info_log_level = rocksdb::InfoLogLevel::HEADER_LEVEL;
+    options.info_log.reset(new NullLogger());
+    status = rocksdb::DB::Open(options, src_.c_str(), &db_);
+    if (!status.ok()) { return SetStatus(status); }
+
+    status = rocksdb::BackupEngine::Open(
+      rocksdb::Env::Default(), rocksdb::BackupableDBOptions(backup_), &backup_engine_
+    );
+    if (!status.ok()) { return SetStatus(status); }
+    status = backup_engine_->CreateNewBackup(db_);
+    if (!status.ok()) { return SetStatus(status); }
+    status = backup_engine_->RestoreDBFromLatestBackup(dst_, dst_);
+    if (!status.ok()) { return SetStatus(status); }
+    SetStatus(backup_engine_->PurgeOldBackups(0));
+  }
+  std::string src_;
+  std::string dst_;
+  std::string backup_;
+  rocksdb::BackupEngine* backup_engine_;
+  rocksdb::DB* db_;
+};
+
+/**
+ * Replicates a database.
+ */
+NAPI_METHOD(replicate_db) {
+  NAPI_ARGV(4);
+  NAPI_ARGV_UTF8_NEW(src, 0);
+  NAPI_ARGV_UTF8_NEW(dst, 1);
+  NAPI_ARGV_UTF8_NEW(backup, 2);
+  napi_value callback = argv[3];
+
+  ReplicateWorker* worker = new ReplicateWorker(env, src, dst, backup, callback);
+  worker->Queue();
+
+  delete [] src;
+  delete [] dst;
+  delete [] backup;
+
+  NAPI_RETURN_UNDEFINED();
+}
+
+/**
  * Runs when an Iterator is garbage collected.
  */
 static void FinalizeIterator (napi_env env, void* data, void* hint) {
@@ -1904,6 +1979,7 @@ NAPI_INIT() {
 
   NAPI_EXPORT_FUNCTION(destroy_db);
   NAPI_EXPORT_FUNCTION(repair_db);
+  NAPI_EXPORT_FUNCTION(replicate_db);
 
   NAPI_EXPORT_FUNCTION(iterator_init);
   NAPI_EXPORT_FUNCTION(iterator_seek);

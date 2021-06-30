@@ -33,6 +33,7 @@ import {
     getProperty(property: string): string;
     destroy(location: string, cb: ErrorCallback): void;
     repair(location: string, cb: ErrorCallback): void;
+    replicate(src: string, dst: string, backup: string, cb: ErrorCallback): void;
     iterator(options?: RocksDB.IteratorOptions): RocksDB.Iterator;
   }
   
