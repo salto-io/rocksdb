@@ -1,7 +1,7 @@
 version: 2.1
 
 orbs:
-  node: circleci/node@4.5.1
+  node: circleci/node@4.7.0
   windows: circleci/windows@2.4.0
 
 
@@ -9,21 +9,33 @@ jobs:
   prebuild_windows:
     executor:
       name: windows/default
-      shell: bash.exe
+      shell: powershell.exe
+    # currently the windows build is not passing
     steps:
       - checkout
-      - node/install:
-          install-yarn: true
-          install-npm: false
-          node-version: 12.22.1
-      - node/install-packages:
-          pkg-manager: yarn 
-          override-ci-command: yarn install --frozen-lockfile
-          with-cache: false
-          include-branch-in-cache-key: false
+      - run:
+          name: setup node and yarn
+          command: |
+            nvm on
+            nvm install 12.22.1
+            nvm use 12.22.1
+            nvm alias default 12.22.1
+            $NpmPath=[Environment]::GetEnvironmentVariable("ProgramW6432")+"\nodejs"
+            $regexAddPath = [regex]::Escape($addPath)
+            $arrPath = $env:Path -split ';' | Where-Object {$_ -notMatch "^$regexAddPath\\?"}
+            $env:Path = ($arrPath + $NpmPath) -join ';'
+            npm install --global yarn@1.22.11
+      - run:
+          name: install packages
+          command: |
+            yarn install --frozen-lockfile
       - run:
           name: Prebuild windows binary
-          command: yarn prebuild
+          command: |
+            yarn prebuild
+      - persist_to_workspace:
+          root: .
+          paths: prebuilds/win32-x64
 
   prebuild_macos:
     macos:
@@ -35,27 +47,44 @@ jobs:
           install-npm: false
           node-version: 12.22.1
       - node/install-packages:
-          pkg-manager: yarn 
+          pkg-manager: yarn
           override-ci-command: yarn install --frozen-lockfile
           with-cache: false
           include-branch-in-cache-key: false
       - run:
           name: Prebuild binary
           command: yarn prebuild --tag-libc
+      - persist_to_workspace:
+          root: .
+          paths: prebuilds/darwin-x64
 
-  prebuild_linux:  
+  prebuild_linux:
     docker:
       - image: cimg/node:12.22.1
     steps:
       - checkout
       - node/install-packages:
-          pkg-manager: yarn 
+          pkg-manager: yarn
           override-ci-command: yarn install --frozen-lockfile
           with-cache: false
           include-branch-in-cache-key: false
       - run:
           name: Prebuild binary
           command: yarn prebuild --tag-libc
+      - persist_to_workspace:
+          root: .
+          paths: prebuilds/linux-x64
+  publish_to_npm:
+    docker:
+      - image: cimg/stable-20.04
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: publish to NPM
+          command: |
+            ls -ltrh prebuilds
+            echo "TODO"
 workflows:
   prebuild:
     jobs:
@@ -68,6 +97,14 @@ workflows:
             branches:
               only: master
       - prebuild_windows:
+          filters:
+            branches:
+              only: master
+      - publish_to_npm:
+          requires:
+            - prebuild_windows
+            - prebuild_macos
+            - prebuild_linux
           filters:
             branches:
               only: master
