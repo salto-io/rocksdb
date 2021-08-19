@@ -15,7 +15,7 @@ commands:
             GIT_REVISION: << pipeline.git.revision >>
             PIPELINE_NUMBER: << pipeline.number >>
           command: |
-            echo "export S3_PKG_BUCKET=salto-rocksdb-prebuilds" >> $BASH_ENV
+            echo "export S3_PKG_BUCKET=salto-rocksdb-releases" >> $BASH_ENV
             echo "export PKG_PREFIX=${GIT_REVISION:0:8}" >> $BASH_ENV
             source $BASH_ENV
             echo "export S3_PKG_HASH_PREFIX=s3://${S3_PKG_BUCKET}/${CIRCLE_BRANCH}/${PKG_PREFIX}" >> $BASH_ENV
@@ -102,7 +102,7 @@ jobs:
       - set_s3_pkg_urls
       - run:
           name: archive prebuilds
-          command: tar cvf prebuilds/ prebuilds.tar
+          command: tar cvf prebuilds.tar prebuilds/ 
       - aws-s3/sync:
           from: prebuilds.tar
           to: ${S3_PKG_HASH_PREFIX}/prebuilds.tar
