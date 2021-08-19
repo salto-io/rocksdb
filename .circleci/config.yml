@@ -88,17 +88,6 @@ jobs:
       - persist_to_workspace:
           root: .
           paths: prebuilds/linux-x64
-  publish_to_npm:
-    docker:
-      - image: cimg/stable-20.04
-    steps:
-      - attach_workspace:
-          at: .
-      - run:git 
-          name: publish to NPM
-          command: |
-            ls -ltrh prebuilds
-            echo "TODO"
   
   upload_to_s3:
     steps:
