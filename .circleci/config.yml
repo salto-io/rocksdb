@@ -3,6 +3,8 @@ version: 2.1
 orbs:
   node: circleci/node@4.7.0
   windows: circleci/windows@2.4.0
+  aws-s3: circleci/aws-s3@1.0.15
+  aws-cli: circleci/aws-cli@2.0.3
 
 commands: 
   set_s3_pkg_urls:
