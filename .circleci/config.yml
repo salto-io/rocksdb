@@ -97,6 +97,9 @@ jobs:
     steps:
       - attach_workspace:
           at: .
+      - run:
+          name: debug
+          command: ls -ltra
       - aws-cli/install:
           version: 2.2.2
       - aws-cli/setup:
