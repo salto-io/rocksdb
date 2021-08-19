@@ -108,8 +108,14 @@ jobs:
       - run:
           name: archive prebuilds
           command: tar cvf prebuilds.tar prebuilds/ 
+      - run:
+          name: pwd
+          command: pwd
+      - run:
+          name: ls
+          command: ls -ltra
       - aws-s3/sync:
-          from: prebuilds.tar
+          from: ./prebuilds.tar
           to: ${S3_PKG_HASH_PREFIX}/prebuilds.tar
 
 workflows:
