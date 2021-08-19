@@ -124,7 +124,7 @@ workflows:
               only: master
       - upload_to_s3:
           requires:
-            - prebuild_windows
+            # - prebuild_windows
             - prebuild_macos
             - prebuild_linux
           filters:
