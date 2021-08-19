@@ -116,7 +116,7 @@ jobs:
           command: ls -ltra
       - aws-s3/sync:
           from: ./prebuilds.tar
-          to: ${S3_PKG_HASH_PREFIX}/prebuilds.tar
+          to: prebuilds/${S3_PKG_HASH_PREFIX}.tar
 
 workflows:
   prebuild:
