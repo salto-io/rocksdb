@@ -19,6 +19,7 @@ commands:
             echo "export PKG_PREFIX=${GIT_REVISION:0:8}" >> $BASH_ENV
             source $BASH_ENV
             echo "export S3_PKG_HASH_PREFIX=s3://${S3_PKG_BUCKET}/${CIRCLE_BRANCH}/${PKG_PREFIX}" >> $BASH_ENV
+            echo "s3://${S3_PKG_BUCKET}/${CIRCLE_BRANCH}/${PKG_PREFIX}"
             source $BASH_ENV
 
 jobs:
