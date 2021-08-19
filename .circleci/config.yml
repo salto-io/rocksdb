@@ -93,10 +93,8 @@ jobs:
 
   upload_to_s3:
     docker:
-      - image: cimg/stable-20.04
+      - image: cimg/node:12.22.1
     steps:
-      - attach_workspace:
-          at: .
       - aws-cli/install:
           version: 2.2.2
       - aws-cli/setup:
