@@ -18,19 +18,6 @@ commands:
             source $BASH_ENV
             echo "export S3_PKG_HASH_PREFIX=s3://${S3_PKG_BUCKET}/${CIRCLE_BRANCH}/${PKG_PREFIX}" >> $BASH_ENV
             source $BASH_ENV
-  upload_to_s3:
-    steps:
-      - aws-cli/install:
-          version: 2.2.2
-      - aws-cli/setup:
-          aws-region: AWS_DEFAULT_REGION
-      - set_s3_pkg_urls
-      - run:
-          name: archive prebuilds
-          command: tar cvf prebuilds/ prebuilds.tar
-      - aws-s3/sync:
-          from: prebuilds.tar
-          to: ${S3_PKG_HASH_PREFIX}/prebuilds.tar
 
 jobs:
   prebuild_windows:
@@ -101,6 +88,22 @@ jobs:
       - persist_to_workspace:
           root: .
           paths: prebuilds/linux-x64
+
+  upload_to_s3:
+    docker:
+      - image: cimg/node:12.22.1
+    steps:
+      - aws-cli/install:
+          version: 2.2.2
+      - aws-cli/setup:
+          aws-region: AWS_DEFAULT_REGION
+      - set_s3_pkg_urls
+      - run:
+          name: archive prebuilds
+          command: tar cvf prebuilds/ prebuilds.tar
+      - aws-s3/sync:
+          from: prebuilds.tar
+          to: ${S3_PKG_HASH_PREFIX}/prebuilds.tar
 
 workflows:
   prebuild:
