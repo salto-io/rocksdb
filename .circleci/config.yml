@@ -4,6 +4,20 @@ orbs:
   node: circleci/node@4.7.0
   windows: circleci/windows@2.4.0
 
+commands: 
+  set_s3_pkg_urls:
+  steps:
+    - run:
+        name: Set S3 URLs according to date and git hash
+        environment:
+          GIT_REVISION: << pipeline.git.revision >>
+          PIPELINE_NUMBER: << pipeline.number >>
+        command: |
+          echo "export S3_PKG_BUCKET=salto-rocksdb-prebuilds" >> $BASH_ENV
+          echo "export PKG_PREFIX=${GIT_REVISION:0:8}" >> $BASH_ENV
+          source $BASH_ENV
+          echo "export S3_PKG_HASH_PREFIX=s3://${S3_PKG_BUCKET}/${CIRCLE_BRANCH}/${PKG_PREFIX}" >> $BASH_ENV
+          source $BASH_ENV
 
 jobs:
   prebuild_windows:
@@ -80,11 +94,26 @@ jobs:
     steps:
       - attach_workspace:
           at: .
-      - run:
+      - run:git 
           name: publish to NPM
           command: |
             ls -ltrh prebuilds
             echo "TODO"
+  
+  upload_to_s3:
+    steps:
+      - aws-cli/install:
+          version: 2.2.2
+      - aws-cli/setup:
+          aws-region: AWS_DEFAULT_REGION
+      - set_s3_pkg_urls
+      - run:
+          name: archive prebuilds
+          command: tar cvf prebuilds/ prebuilds.tar
+      - aws-s3/sync:
+          from: prebuilds.tar
+          to: ${S3_PKG_HASH_PREFIX}/prebuilds.tar
+
 workflows:
   prebuild:
     jobs:
@@ -100,7 +129,7 @@ workflows:
           filters:
             branches:
               only: master
-      - publish_to_npm:
+      - upload_to_s3:
           requires:
             - prebuild_windows
             - prebuild_macos
