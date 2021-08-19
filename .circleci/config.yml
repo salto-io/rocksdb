@@ -3,28 +3,36 @@ version: 2.1
 orbs:
   node: circleci/node@4.7.0
   windows: circleci/windows@2.4.0
+  aws-s3: circleci/aws-s3@1.0.15
+  aws-cli: circleci/aws-cli@2.0.3
 
+commands: 
+  set_s3_pkg_urls:
+    steps:
+      - run:
+          name: Set S3 URLs according to date and git hash
+          environment:
+            GIT_REVISION: << pipeline.git.revision >>
+            PIPELINE_NUMBER: << pipeline.number >>
+          command: |
+            echo "export S3_PKG_BUCKET=salto-rocksdb-releases" >> $BASH_ENV
+            echo "export PKG_PREFIX=${GIT_REVISION:0:8}" >> $BASH_ENV
+            source $BASH_ENV
+            echo "export S3_PKG_HASH_PREFIX=s3://${S3_PKG_BUCKET}/${CIRCLE_BRANCH}/${PKG_PREFIX}" >> $BASH_ENV
+            source $BASH_ENV
 
 jobs:
   prebuild_windows:
     executor:
       name: windows/default
-      shell: powershell.exe
+      shell: bash.exe
     # currently the windows build is not passing
     steps:
       - checkout
-      - run:
-          name: setup node and yarn
-          command: |
-            nvm on
-            nvm install 12.22.1
-            nvm use 12.22.1
-            nvm alias default 12.22.1
-            $NpmPath=[Environment]::GetEnvironmentVariable("ProgramW6432")+"\nodejs"
-            $regexAddPath = [regex]::Escape($addPath)
-            $arrPath = $env:Path -split ';' | Where-Object {$_ -notMatch "^$regexAddPath\\?"}
-            $env:Path = ($arrPath + $NpmPath) -join ';'
-            npm install --global yarn@1.22.11
+      - node/install:
+          install-yarn: true
+          install-npm: false
+          node-version: 12.22.1
       - run:
           name: install packages
           command: |
@@ -74,17 +82,25 @@ jobs:
       - persist_to_workspace:
           root: .
           paths: prebuilds/linux-x64
-  publish_to_npm:
+
+  upload_to_s3:
     docker:
-      - image: cimg/stable-20.04
+      - image: cimg/node:12.22.1
     steps:
       - attach_workspace:
           at: .
+      - aws-cli/install:
+          version: 2.2.2
+      - aws-cli/setup:
+          aws-region: AWS_DEFAULT_REGION
+      - set_s3_pkg_urls
       - run:
-          name: publish to NPM
-          command: |
-            ls -ltrh prebuilds
-            echo "TODO"
+          name: archive prebuilds
+          command: mkdir output && tar cvf output/all.tar prebuilds/ 
+      - aws-s3/sync:
+          from: output
+          to: "${S3_PKG_HASH_PREFIX}/prebuilds"
+
 workflows:
   prebuild:
     jobs:
@@ -100,9 +116,9 @@ workflows:
           filters:
             branches:
               only: master
-      - publish_to_npm:
+      - upload_to_s3:
           requires:
-            - prebuild_windows
+            # - prebuild_windows
             - prebuild_macos
             - prebuild_linux
           filters:
