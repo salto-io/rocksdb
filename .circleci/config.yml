@@ -47,7 +47,7 @@ jobs:
 
   prebuild_macos:
     macos:
-      xcode: 11.3.0
+      xcode: 12.5.1
     steps:
       - checkout
       - node/install:
@@ -68,7 +68,7 @@ jobs:
 
   prebuild_linux:
     docker:
-      - image: cimg/node:12.22.1
+      - image: circleci/node:12.16
     steps:
       - checkout
       - node/install-packages:

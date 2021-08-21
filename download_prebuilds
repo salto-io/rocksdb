@@ -1,7 +1,5 @@
 #!/bin/bash
 REV=$(git rev-parse HEAD | cut -c1-8)
-aws s3 cp s3://salto-rocksdb-releases/master/${REV}/prebuilds/all.tar ./prebuilds/all.tar
-cd ./prebuilds
+aws s3 cp s3://salto-rocksdb-releases/master/${REV}/prebuilds/all.tar ./all.tar
 tar xvf all.tar
 rm all.tar
-cd ..
