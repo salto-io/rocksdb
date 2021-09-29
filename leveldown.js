@@ -21,6 +21,13 @@ function LevelDOWN (location) {
 
 util.inherits(LevelDOWN, AbstractLevelDOWN)
 
+LevelDOWN.prototype._validateOpenConnection = function (funcName) {
+  if (this.status !== 'open') {
+    // Prevent segfault
+    throw new Error(`Connection is closed. Cannot call ${funcName}() before open()`);
+  }
+}
+
 LevelDOWN.prototype._open = function (options, callback) {
   binding.db_open(this.context, this.location, options, callback)
 }
@@ -38,26 +45,32 @@ LevelDOWN.prototype._serializeValue = function (value) {
 }
 
 LevelDOWN.prototype._put = function (key, value, options, callback) {
-  binding.db_put(this.context, key, value, options, callback)
+  this._validateOpenConnection('put');
+  binding.db_put(this.context, key, value, options, callback);
 }
 
 LevelDOWN.prototype._get = function (key, options, callback) {
-  binding.db_get(this.context, key, options, callback)
+  this._validateOpenConnection('get');
+  binding.db_get(this.context, key, options, callback);
 }
 
 LevelDOWN.prototype._del = function (key, options, callback) {
-  binding.db_del(this.context, key, options, callback)
+  this._validateOpenConnection('del');
+  binding.db_del(this.context, key, options, callback);
 }
 
 LevelDOWN.prototype._chainedBatch = function () {
+  this._validateOpenConnection('chainedBatch');
   return new ChainedBatch(this)
 }
 
 LevelDOWN.prototype._batch = function (operations, options, callback) {
-  binding.batch_do(this.context, operations, options, callback)
+  this._validateOpenConnection('batch');
+  binding.batch_do(this.context, operations, options, callback);
 }
 
 LevelDOWN.prototype.approximateSize = function (start, end, callback) {
+  this._validateOpenConnection('approximateSize');
   if (start == null ||
       end == null ||
       typeof start === 'function' ||
@@ -76,6 +89,7 @@ LevelDOWN.prototype.approximateSize = function (start, end, callback) {
 }
 
 LevelDOWN.prototype.compactRange = function (start, end, callback) {
+  this._validateOpenConnection('compactRange');
   if (start == null ||
       end == null ||
       typeof start === 'function' ||
@@ -94,19 +108,16 @@ LevelDOWN.prototype.compactRange = function (start, end, callback) {
 }
 
 LevelDOWN.prototype.getProperty = function (property) {
+  this._validateOpenConnection('getProperty');
   if (typeof property !== 'string') {
-    throw new Error('getProperty() requires a valid `property` argument')
+    throw new Error('getProperty() requires a valid `property` argument');
   }
 
-  return binding.db_get_property(this.context, property)
+  return binding.db_get_property(this.context, property);
 }
 
 LevelDOWN.prototype._iterator = function (options) {
-  if (this.status !== 'open') {
-    // Prevent segfault
-    throw new Error('cannot call iterator() before open()')
-  }
-
+  this._validateOpenConnection('iterator');
   return new Iterator(this, options)
 }
 

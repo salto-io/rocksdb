@@ -7,6 +7,13 @@ function ChainedBatch (db) {
   this.context = binding.batch_init(db.context)
 }
 
+ChainedBatch.prototype._validateOpenConnection = function (funcName) {
+  if (this.db.status !== 'open') {
+    // Prevent segfault
+    throw new Error(`Connection is closed. Cannot call batch function ${funcName} before open()`);
+  }
+}
+
 ChainedBatch.prototype._put = function (key, value) {
   binding.batch_put(this.context, key, value)
 }
@@ -20,6 +27,7 @@ ChainedBatch.prototype._clear = function () {
 }
 
 ChainedBatch.prototype._write = function (options, callback) {
+  this._validateOpenConnection('write');
   binding.batch_write(this.context, options, callback)
 }
 
