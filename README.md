@@ -3,15 +3,13 @@
 > A low-level Node.js RocksDB binding. An [`abstract-leveldown`](https://github.com/Level/abstract-leveldown) compliant store.
 
 [![level badge][level-badge]](https://github.com/Level/awesome)
-[![npm](https://img.shields.io/npm/v/rocksdb.svg?label=&logo=npm)](https://www.npmjs.com/package/rocksdb)
+[![npm](https://img.shields.io/npm/v/rocksdb.svg)](https://www.npmjs.com/package/rocksdb)
 [![Node version](https://img.shields.io/node/v/rocksdb.svg)](https://www.npmjs.com/package/rocksdb)
-[![Travis](https://img.shields.io/travis/Level/rocksdb.svg?logo=travis&label=)](https://travis-ci.org/Level/rocksdb)
-[![AppVeyor](https://img.shields.io/appveyor/ci/Level/rocksdb.svg?logo=appveyor&label=)](https://ci.appveyor.com/project/Level/rocksdb)
-[![npm downloads](https://img.shields.io/npm/dm/rocksdb.svg?label=dl)](https://www.npmjs.com/package/rocksdb)
-[![Coverage Status](https://coveralls.io/repos/github/Level/rocksdb/badge.svg)](https://coveralls.io/github/Level/rocksdb)
-[![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com)
-[![Backers on Open Collective](https://opencollective.com/level/backers/badge.svg?color=orange)](#backers)
-[![Sponsors on Open Collective](https://opencollective.com/level/sponsors/badge.svg?color=orange)](#sponsors)
+[![Test](https://img.shields.io/github/workflow/status/Level/rocksdb/Test?label=test)](https://github.com/Level/rocksdb/actions/workflows/test.yml)
+[![Coverage](https://img.shields.io/codecov/c/github/Level/rocksdb?label=&logo=codecov&logoColor=fff)](https://codecov.io/gh/Level/rocksdb)
+[![Standard](https://img.shields.io/badge/standard-informational?logo=javascript&logoColor=fff)](https://standardjs.com)
+[![Common Changelog](https://common-changelog.org/badge.svg)](https://common-changelog.org)
+[![Donate](https://img.shields.io/badge/donate-orange?logo=open-collective&logoColor=fff)](https://opencollective.com/level)
 
 ## Table of Contents
 
@@ -21,6 +19,8 @@
 - [Supported Platforms](#supported-platforms)
 - [API](#api)
 - [Contributing](#contributing)
+  - [Git Submodules](#git-submodules)
+  - [Publishing](#publishing)
 - [Donate](#donate)
 - [License](#license)
 
@@ -36,7 +36,7 @@ It is **strongly recommended** that you use `levelup` in preference to `rocksdb`
 
 ## Supported Platforms
 
-We aim to support _at least_ Active LTS and Current Node.js releases, Electron 4.0.0, as well as any future Node.js and Electron releases thanks to [N-API](https://nodejs.org/api/n-api.html). Because N-API has an experimental status in node 6 and early 8.x releases, the minimum node version for `rocksdb` is `8.6.0`.
+We aim to support _at least_ Active LTS and Current Node.js releases, Electron 5.0.0, as well as any future Node.js and Electron releases thanks to [N-API](https://nodejs.org/api/n-api.html). The minimum node version for `rocksdb` is `10.12.0`.
 
 The `rocksdb` npm package ships with prebuilt binaries for popular 64-bit platforms and is known to work on:
 
@@ -65,32 +65,37 @@ Please refer to [`leveldown`](https://github.com/Level/leveldown#api) for API do
 
 See the [Contribution Guide](https://github.com/Level/community/blob/master/CONTRIBUTING.md) for more details.
 
+### Git Submodules
+
+This project uses Git Submodules. This means that you should clone it recursively if you're planning on working on it:
+
+```bash
+$ git clone --recurse-submodules https://github.com/Level/rocksdb.git
+```
+
+Alternatively, you can initialize submodules after cloning:
+
+```bash
+$ git submodule update --init --recursive
+```
+
 ### Publishing
 
 1. Increment the version: `npm version ..`
 2. Push to GitHub: `git push --follow-tags`
-3. Wait for Travis and AppVeyor builds to complete
+3. Wait for CI to complete
 4. Download prebuilds into `./prebuilds`: `npm run download-prebuilds`
 5. Optionally verify loading a prebuild: `npm run test-prebuild`
 6. Optionally verify which files npm will include: `canadian-pub`
-7. Add changelog to the GitHub release
-8. Finally: `npm publish`
+7. Finally: `npm publish`
 
 ## Donate
 
-To sustain [`Level`](https://github.com/Level) and its activities, become a backer or sponsor on [Open Collective](https://opencollective.com/level). Your logo or avatar will be displayed on our 28+ [GitHub repositories](https://github.com/Level) and [npm](https://www.npmjs.com/) packages. 💖
-
-### Backers
-
-[![Open Collective backers](https://opencollective.com/level/backers.svg?width=890)](https://opencollective.com/level)
-
-### Sponsors
-
-[![Open Collective sponsors](https://opencollective.com/level/sponsors.svg?width=890)](https://opencollective.com/level)
+Support us with a monthly donation on [Open Collective](https://opencollective.com/level) and help us continue our work.
 
 ## License
 
-[MIT](LICENSE.md) © 2012-present Rod Vagg and [Contributors](CONTRIBUTORS.md).
+[MIT](LICENSE)
 
 _`rocksdb` builds on the excellent work of the LevelDB and Snappy teams from Google and additional contributors to the LevelDB fork by Facebook. LevelDB and Snappy are both issued under the [New BSD License](http://opensource.org/licenses/BSD-3-Clause). A large portion of `rocksdb` Windows support comes from the [Windows LevelDB port](http://code.google.com/r/kkowalczyk-leveldb/) (archived) by [Krzysztof Kowalczyk](http://blog.kowalczyk.info/) ([`@kjk`](https://twitter.com/kjk)). If you're using `rocksdb` on Windows, you should give him your thanks!_
 

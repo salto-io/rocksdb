@@ -17,6 +17,7 @@
               , 'VCLinkerTool': {
                     'AdditionalDependencies': [
                         # SDK import libs.
+                        'Shlwapi.lib',
                         'rpcrt4.lib'
                     ]
                 }
@@ -27,22 +28,30 @@
             , 'cflags_cc+': [ '-frtti' ]
           }]
         , ["OS == 'mac'", {
+            "cflags+": ["-fvisibility=hidden"],
             'xcode_settings': {
-                    'WARNING_CFLAGS': [
-                        '-Wno-sign-compare'
-                      , '-Wno-unused-variable'
-                      , '-Wno-unused-function'
-                      , '-Wno-ignored-qualifiers'
-                    ]
-                    , 'OTHER_CPLUSPLUSFLAGS': [
-                        '-mmacosx-version-min=10.8'
-                      , '-std=c++11'
-                      , '-stdlib=libc++'
-                    ]
-, 'OTHER_LDFLAGS': ['-stdlib=libc++']
-                    , 'GCC_ENABLE_CPP_RTTI': 'YES'
-                    , 'GCC_ENABLE_CPP_EXCEPTIONS': 'YES'
-                    , 'MACOSX_DEPLOYMENT_TARGET': '10.8'
+                  "GCC_SYMBOLS_PRIVATE_EXTERN": "YES" # -fvisibility=hidden
+                , 'WARNING_CFLAGS': [
+                    '-Wno-sign-compare'
+                  , '-Wno-unused-variable'
+                  , '-Wno-unused-function'
+                  , '-Wno-ignored-qualifiers'
+                ]
+                , 'OTHER_CPLUSPLUSFLAGS': [
+                    '-mmacosx-version-min=10.8'
+                  , '-std=c++11'
+                  , '-stdlib=libc++'
+                  , '-arch x86_64'
+                  , '-arch arm64'
+                ]
+                , 'OTHER_LDFLAGS': [
+                    '-stdlib=libc++'
+                  , '-arch x86_64'
+                  , '-arch arm64'
+                ]
+                , 'GCC_ENABLE_CPP_RTTI': 'YES'
+                , 'GCC_ENABLE_CPP_EXCEPTIONS': 'YES'
+                , 'MACOSX_DEPLOYMENT_TARGET': '10.8'
             }
           }]
         , ['OS == "linux"', {
@@ -52,7 +61,7 @@
           }]
         ]
       , "dependencies": [
-            "<(module_root_dir)/deps/leveldb/leveldb.gyp:leveldb"
+            "<(module_root_dir)/deps/rocksdb/rocksdb.gyp:rocksdb"
         ]
       , "include_dirs"  : [
             "<!(node -e \"require('napi-macros')\")"

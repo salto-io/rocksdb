@@ -240,6 +240,25 @@ static size_t StringOrBufferLength (napi_env env, napi_value value) {
 }
 
 /**
+ * Takes a Buffer or string property 'name' from 'opts'.
+ * Returns null if the property does not exist or is zero-length.
+ */
+static std::string* RangeOption (napi_env env, napi_value opts, const char* name) {
+  if (HasProperty(env, opts, name)) {
+    napi_value value = GetProperty(env, opts, name);
+
+    if (StringOrBufferLength(env, value) > 0) {
+      LD_STRING_OR_BUFFER_TO_COPY(env, value, to);
+      std::string* result = new std::string(toCh_, toSz_);
+      delete [] toCh_;
+      return result;
+    }
+  }
+
+  return NULL;
+}
+
+/**
  * Calls a function.
  */
 static napi_status CallFunction (napi_env env,
@@ -494,8 +513,6 @@ struct PriorityWorker : public BaseWorker {
 struct Iterator {
   Iterator (Database* database,
             uint32_t id,
-            leveldb::Slice* start,
-            std::string* end,
             bool reverse,
             bool keys,
             bool values,
@@ -510,8 +527,6 @@ struct Iterator {
             uint32_t highWaterMark)
     : database_(database),
       id_(id),
-      start_(start),
-      end_(end),
       reverse_(reverse),
       keys_(keys),
       values_(values),
@@ -525,7 +540,6 @@ struct Iterator {
       highWaterMark_(highWaterMark),
       dbIterator_(NULL),
       count_(0),
-      target_(NULL),
       seeking_(false),
       landed_(false),
       nexting_(false),
@@ -540,44 +554,13 @@ struct Iterator {
 
   ~Iterator () {
     assert(ended_);
-    ReleaseTarget();
-    if (start_ != NULL) {
-      // Special case for `start` option: it won't be
-      // freed up by any of the delete calls below.
-      if (!((lt_ != NULL && reverse_)
-            || (lte_ != NULL && reverse_)
-            || (gt_ != NULL && !reverse_)
-            || (gte_ != NULL && !reverse_))) {
-        delete [] start_->data();
-      }
-      delete start_;
-    }
-    if (end_ != NULL) {
-      delete end_;
-    }
-    if (lt_ != NULL) {
-      delete lt_;
-    }
-    if (gt_ != NULL) {
-      delete gt_;
-    }
-    if (lte_ != NULL) {
-      delete lte_;
-    }
-    if (gte_ != NULL) {
-      delete gte_;
-    }
-    delete options_;
-  }
 
-  void ReleaseTarget () {
-    if (target_ != NULL) {
-      if (!target_->empty()) {
-        delete [] target_->data();
-      }
-      delete target_;
-      target_ = NULL;
-    }
+    if (lt_ != NULL) delete lt_;
+    if (gt_ != NULL) delete gt_;
+    if (lte_ != NULL) delete lte_;
+    if (gte_ != NULL) delete gte_;
+
+    delete options_;
   }
 
   void Attach (napi_ref ref) {
@@ -605,35 +588,29 @@ struct Iterator {
 
     dbIterator_ = database_->NewIterator(options_);
 
-    if (start_ != NULL) {
-      dbIterator_->Seek(*start_);
+    if (!reverse_ && gte_ != NULL) {
+      dbIterator_->Seek(*gte_);
+    } else if (!reverse_ && gt_ != NULL) {
+      dbIterator_->Seek(*gt_);
 
-      if (reverse_) {
-        if (!dbIterator_->Valid()) {
-          dbIterator_->SeekToLast();
-        } else {
-          std::string keyStr = dbIterator_->key().ToString();
+      if (dbIterator_->Valid() && dbIterator_->key().compare(*gt_) == 0) {
+        dbIterator_->Next();
+      }
+    } else if (reverse_ && lte_ != NULL) {
+      dbIterator_->Seek(*lte_);
 
-          if (lt_ != NULL) {
-            if (lt_->compare(keyStr) <= 0)
-              dbIterator_->Prev();
-          } else if (lte_ != NULL) {
-            if (lte_->compare(keyStr) < 0)
-              dbIterator_->Prev();
-          } else if (start_ != NULL) {
-            if (start_->compare(keyStr))
-              dbIterator_->Prev();
-          }
-        }
+      if (!dbIterator_->Valid()) {
+        dbIterator_->SeekToLast();
+      } else if (dbIterator_->key().compare(*lte_) > 0) {
+        dbIterator_->Prev();
+      }
+    } else if (reverse_ && lt_ != NULL) {
+      dbIterator_->Seek(*lt_);
 
-        if (dbIterator_->Valid() && lt_ != NULL) {
-          if (lt_->compare(dbIterator_->key().ToString()) <= 0)
-            dbIterator_->Prev();
-        }
-      } else {
-        if (dbIterator_->Valid() && gt_ != NULL
-            && gt_->compare(dbIterator_->key().ToString()) == 0)
-          dbIterator_->Next();
+      if (!dbIterator_->Valid()) {
+        dbIterator_->SeekToLast();
+      } else if (dbIterator_->key().compare(*lt_) >= 0) {
+        dbIterator_->Prev();
       }
     } else if (reverse_) {
       dbIterator_->SeekToLast();
@@ -658,12 +635,8 @@ struct Iterator {
 
     if (dbIterator_->Valid()) {
       std::string keyStr = dbIterator_->key().ToString();
-      const int isEnd = end_ == NULL ? 1 : end_->compare(keyStr);
 
       if ((limit_ < 0 || ++count_ <= limit_)
-          && (end_ == NULL
-              || (reverse_ && (isEnd <= 0))
-              || (!reverse_ && (isEnd >= 0)))
           && ( lt_  != NULL ? (lt_->compare(keyStr) > 0)
                : lte_ != NULL ? (lte_->compare(keyStr) >= 0)
                : true )
@@ -684,21 +657,11 @@ struct Iterator {
     return false;
   }
 
-  bool OutOfRange (leveldb::Slice* target) {
-    if ((lt_ != NULL && target->compare(*lt_) >= 0) ||
-        (lte_ != NULL && target->compare(*lte_) > 0) ||
-        (start_ != NULL && reverse_ && target->compare(*start_) > 0)) {
-      return true;
-    }
-
-    if (end_ != NULL) {
-      int d = target->compare(*end_);
-      if (reverse_ ? d < 0 : d > 0) return true;
-    }
-
-    return ((gt_ != NULL && target->compare(*gt_) <= 0) ||
-            (gte_ != NULL && target->compare(*gte_) < 0) ||
-            (start_ != NULL && !reverse_ && target->compare(*start_) < 0));
+  bool OutOfRange (leveldb::Slice& target) {
+    return ((lt_  != NULL && target.compare(*lt_) >= 0) ||
+            (lte_ != NULL && target.compare(*lte_) > 0) ||
+            (gt_  != NULL && target.compare(*gt_) <= 0) ||
+            (gte_ != NULL && target.compare(*gte_) < 0));
   }
 
   bool IteratorNext (std::vector<std::pair<std::string, std::string> >& result) {
@@ -731,8 +694,6 @@ struct Iterator {
 
   Database* database_;
   uint32_t id_;
-  leveldb::Slice* start_;
-  std::string* end_;
   bool reverse_;
   bool keys_;
   bool values_;
@@ -746,7 +707,6 @@ struct Iterator {
   uint32_t highWaterMark_;
   leveldb::Iterator* dbIterator_;
   int count_;
-  leveldb::Slice* target_;
   bool seeking_;
   bool landed_;
   bool nexting_;
@@ -1118,7 +1078,7 @@ struct ApproximateSizeWorker final : public PriorityWorker {
   void HandleOKCallback () override {
     napi_value argv[2];
     napi_get_null(env_, &argv[0]);
-    napi_create_uint32(env_, (uint32_t)size_, &argv[1]);
+    napi_create_int64(env_, (int64_t)size_, &argv[1]);
     napi_value callback;
     napi_get_reference_value(env_, callbackRef_, &callback);
     CallFunction(env_, callback, 2, argv);
@@ -1378,17 +1338,6 @@ static void FinalizeIterator (napi_env env, void* data, void* hint) {
   }
 }
 
-#define CHECK_PROPERTY(name, code)                                      \
-  if (HasProperty(env, options, #name)) {                               \
-    napi_value value = GetProperty(env, options, #name);                \
-    if (IsString(env, value) || IsBuffer(env, value)) {                 \
-      if (StringOrBufferLength(env, value) > 0) {                       \
-        LD_STRING_OR_BUFFER_TO_COPY(env, value, _##name);               \
-        code;                                                           \
-      }                                                                 \
-    }                                                                   \
-  }                                                                     \
-
 /**
  * Create an iterator.
  */
@@ -1407,87 +1356,13 @@ NAPI_METHOD(iterator_init) {
   uint32_t highWaterMark = Uint32Property(env, options, "highWaterMark",
                                           16 * 1024);
 
-  // TODO simplify and refactor the hideous code below
-
-  leveldb::Slice* start = NULL;
-  char *startStr = NULL;
-  CHECK_PROPERTY(start, {
-    start = new leveldb::Slice(_startCh_, _startSz_);
-    startStr = _startCh_;
-  });
-
-  std::string* end = NULL;
-  CHECK_PROPERTY(end, {
-    end = new std::string(_endCh_, _endSz_);
-    delete [] _endCh_;
-  });
-
-  std::string* lt = NULL;
-  CHECK_PROPERTY(lt, {
-    lt = new std::string(_ltCh_, _ltSz_);
-    delete [] _ltCh_;
-    if (reverse) {
-      if (startStr != NULL) {
-        delete [] startStr;
-        startStr = NULL;
-      }
-      if (start != NULL) {
-        delete start;
-      }
-      start = new leveldb::Slice(lt->data(), lt->size());
-    }
-  });
-
-  std::string* lte = NULL;
-  CHECK_PROPERTY(lte, {
-    lte = new std::string(_lteCh_, _lteSz_);
-    delete [] _lteCh_;
-    if (reverse) {
-      if (startStr != NULL) {
-        delete [] startStr;
-        startStr = NULL;
-      }
-      if (start != NULL) {
-        delete start;
-      }
-      start = new leveldb::Slice(lte->data(), lte->size());
-    }
-  });
-
-  std::string* gt = NULL;
-  CHECK_PROPERTY(gt, {
-    gt = new std::string(_gtCh_, _gtSz_);
-    delete [] _gtCh_;
-    if (!reverse) {
-      if (startStr != NULL) {
-        delete [] startStr;
-        startStr = NULL;
-      }
-      if (start != NULL) {
-        delete start;
-      }
-      start = new leveldb::Slice(gt->data(), gt->size());
-    }
-  });
-
-  std::string* gte = NULL;
-  CHECK_PROPERTY(gte, {
-    gte = new std::string(_gteCh_, _gteSz_);
-    delete [] _gteCh_;
-    if (!reverse) {
-      if (startStr != NULL) {
-        delete [] startStr;
-        startStr = NULL;
-      }
-      if (start != NULL) {
-        delete start;
-      }
-      start = new leveldb::Slice(gte->data(), gte->size());
-    }
-  });
+  std::string* lt = RangeOption(env, options, "lt");
+  std::string* lte = RangeOption(env, options, "lte");
+  std::string* gt = RangeOption(env, options, "gt");
+  std::string* gte = RangeOption(env, options, "gte");
 
   uint32_t id = database->currentIteratorId_++;
-  Iterator* iterator = new Iterator(database, id, start, end, reverse, keys,
+  Iterator* iterator = new Iterator(database, id, reverse, keys,
                                     values, limit, lt, lte, gt, gte, fillCache,
                                     keyAsBuffer, valueAsBuffer, highWaterMark);
   napi_value result;
@@ -1516,17 +1391,16 @@ NAPI_METHOD(iterator_seek) {
     napi_throw_error(env, NULL, "iterator has ended");
   }
 
-  iterator->ReleaseTarget();
-  iterator->target_ = new leveldb::Slice(ToSlice(env, argv[1]));
+  leveldb::Slice target = ToSlice(env, argv[1]);
   iterator->GetIterator();
 
   leveldb::Iterator* dbIterator = iterator->dbIterator_;
-  dbIterator->Seek(*iterator->target_);
+  dbIterator->Seek(target);
 
   iterator->seeking_ = true;
   iterator->landed_ = false;
 
-  if (iterator->OutOfRange(iterator->target_)) {
+  if (iterator->OutOfRange(target)) {
     if (iterator->reverse_) {
       dbIterator->SeekToFirst();
       dbIterator->Prev();
@@ -1534,9 +1408,8 @@ NAPI_METHOD(iterator_seek) {
       dbIterator->SeekToLast();
       dbIterator->Next();
     }
-  }
-  else if (dbIterator->Valid()) {
-    int cmp = dbIterator->key().compare(*iterator->target_);
+  } else if (dbIterator->Valid()) {
+    int cmp = dbIterator->key().compare(target);
     if (cmp > 0 && iterator->reverse_) {
       dbIterator->Prev();
     } else if (cmp < 0 && !iterator->reverse_) {
@@ -1549,7 +1422,7 @@ NAPI_METHOD(iterator_seek) {
       dbIterator->SeekToFirst();
     }
     if (dbIterator->Valid()) {
-      int cmp = dbIterator->key().compare(*iterator->target_);
+      int cmp = dbIterator->key().compare(target);
       if (cmp > 0 && iterator->reverse_) {
         dbIterator->SeekToFirst();
         dbIterator->Prev();
@@ -1560,6 +1433,7 @@ NAPI_METHOD(iterator_seek) {
     }
   }
 
+  DisposeSliceBuffer(target);
   NAPI_RETURN_UNDEFINED();
 }
 
@@ -1621,7 +1495,6 @@ NAPI_METHOD(iterator_end) {
  * for this function being a separate function pointer.
  */
 void CheckEndCallback (Iterator* iterator) {
-  iterator->ReleaseTarget();
   iterator->nexting_ = false;
   if (iterator->endWorker_ != NULL) {
     iterator->endWorker_->Queue();

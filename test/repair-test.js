@@ -21,19 +21,19 @@ test('test callback-less, 1-arg, repair() throws', function (t) {
 
 test('test repair non-existent directory returns error', function (t) {
   leveldown.repair('/1/2/3/4', function (err) {
-    t.ok(/^Error: NotFound:/i.test(err), 'error on callback')
+    t.ok(/^Error:/i.test(err), 'error on callback')
     t.end()
   })
 })
 
 // a proxy indicator that RepairDB is being called and doing its thing
 makeTest('test repair() compacts', function (db, t, done) {
-  var location = db.location
+  const location = db.location
 
   db.close(function (err) {
     t.ifError(err, 'no error from close()')
 
-    var files = fs.readdirSync(location)
+    let files = fs.readdirSync(location)
     t.ok(files.some(function (f) { return (/\.log$/).test(f) }), 'directory contains log file(s)')
     t.notOk(files.some(function (f) { return (/\.sst$/).test(f) }), 'directory does not contain sst file(s)')
 

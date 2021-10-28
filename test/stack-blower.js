@@ -8,12 +8,12 @@
 const testCommon = require('./common')
 
 if (process.argv[2] === 'run') {
-  var db = testCommon.factory()
-  var depth = 0
+  const db = testCommon.factory()
+  let depth = 0
 
   db.open(function () {
     function recurse () {
-      db.iterator({ start: '0' })
+      db.iterator({ gte: '0' })
       depth++
       recurse()
     }
@@ -21,7 +21,12 @@ if (process.argv[2] === 'run') {
     try {
       recurse()
     } catch (e) {
-      process.send('Catchable error at depth ' + depth)
+      // Closing before process exit is normally not needed. This is a
+      // temporary workaround for Level/leveldown#667.
+      db.close(function (err) {
+        if (err) throw err
+        process.send('Catchable error at depth ' + depth)
+      })
     }
   })
 }
