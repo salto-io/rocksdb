@@ -50,6 +50,10 @@ jobs:
       xcode: 12.5.1
     steps:
       - checkout
+      - run:
+          name: git clone submodules
+          command: |
+            git submodule update --init --recursive
       - node/install:
           install-yarn: true
           install-npm: false
