@@ -1,6 +1,6 @@
 {
-  "name": "rocksdb",
-  "version": "5.1.1-salto-14",
+  "name": "@salto-io/rocksdb",
+  "version": "5.1.1-salto-15",
   "description": "A low-level Node.js RocksDB binding",
   "license": "MIT",
   "main": "leveldown.js",
