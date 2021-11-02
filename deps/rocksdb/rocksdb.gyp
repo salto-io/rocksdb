@@ -393,7 +393,7 @@
       , 'rocksdb/util/xxhash.cc'
 
       # Unused
-      # , 'rocksdb/utilities/backupable/backupable_db.cc'
+      , 'rocksdb/utilities/backupable/backupable_db.cc'
 
       # Unused
       # , 'rocksdb/utilities/blob_db/blob_compaction_filter.cc'
