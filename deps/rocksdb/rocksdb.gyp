@@ -391,8 +391,6 @@
       , 'rocksdb/util/thread_local.cc'
       , 'rocksdb/util/threadpool_imp.cc'
       , 'rocksdb/util/xxhash.cc'
-
-      # Unused
       , 'rocksdb/utilities/backupable/backupable_db.cc'
 
       # Unused
