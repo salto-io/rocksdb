@@ -1289,11 +1289,11 @@ struct ReplicateWorker final : public BaseWorker {
     options.info_log_level = rocksdb::InfoLogLevel::HEADER_LEVEL;
     options.info_log.reset(new NullLogger());
     options.create_if_missing = true;
-    status = rocksdb::DB::Open(options, src_.c_str(), &db_);
+    status = rocksdb::DB::OpenForReadOnly(options, src_.c_str(), &db_);
     if (!status.ok()) { return SetStatus(status); }
 
     status = rocksdb::BackupEngine::Open(
-      rocksdb::Env::Default(), rocksdb::BackupableDBOptions(backup_), &backup_engine_
+      rocksdb::BackupableDBOptions(backup_), rocksdb::Env::Default(), &backup_engine_
     );
     if (!status.ok()) { return SetStatus(status); }
     status = backup_engine_->CreateNewBackup(db_);
